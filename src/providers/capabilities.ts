@@ -9,7 +9,7 @@
 
 import type { ProviderCapabilities } from "./types";
 
-export type ProviderId = "demo" | "mono";
+export type ProviderId = "demo" | "mono" | "csv";
 
 /**
  * Mono, verified against the current API docs.
@@ -39,6 +39,19 @@ export const MONO_CAPABILITIES: ProviderCapabilities = {
  * local-only (no upstream call to make).
  */
 export const DEMO_CAPABILITIES: ProviderCapabilities = {
+  realtime: false,
+  pagination: false,
+  reauth: false,
+  multipleAccounts: true,
+  disconnect: true,
+};
+
+/**
+ * CSV import. A file export is a point-in-time snapshot, so nothing streams
+ * and there is nothing to page through or re-authorise. Several statements can
+ * be imported as separate accounts, so `multipleAccounts` is true.
+ */
+export const CSV_CAPABILITIES: ProviderCapabilities = {
   realtime: false,
   pagination: false,
   reauth: false,

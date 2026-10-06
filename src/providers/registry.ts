@@ -9,6 +9,7 @@
 // Keep in sync with the server registry — same provider ids, same countries.
 
 import {
+  CSV_CAPABILITIES,
   DEMO_CAPABILITIES,
   MONO_CAPABILITIES,
   type ProviderId,
@@ -39,6 +40,18 @@ const REGISTRY: Record<ProviderId, ProviderDescriptor> = {
     displayName: "Mono",
     capabilities: MONO_CAPABILITIES,
     requiresConnectSession: true,
+  },
+  /**
+   * CSV import (Phase 12). Not chosen by country — the user opts in from
+   * Settings or the connect flow, because it is a manual import rather than a
+   * country-level availability. It needs no hosted connect session: the file
+   * arrives in one request.
+   */
+  csv: {
+    id: "csv",
+    displayName: "Import CSV",
+    capabilities: CSV_CAPABILITIES,
+    requiresConnectSession: false,
   },
 };
 

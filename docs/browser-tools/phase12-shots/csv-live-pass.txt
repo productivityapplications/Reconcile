@@ -1,0 +1,30 @@
+CSV live pass — 2026-10-06T22:31:50.300Z
+user 48a86896…
+
+PASS  unknown headers return needsMapping — status=422 needsMapping=true headers=["Seq No","Posted On","Txn Text","Movement","Closing Amt"]
+PASS  unknown headers write nothing — rows before=4 after=4
+PASS  a supplied mapping parses an unknown layout — status=200 parsedOk=2 issues=[]
+PASS  a recognised layout reports its shape — layoutId=date_narration_debit_credit_balance label=date, narration, debit, credit, balance
+PASS  the response names no bank — payload carries no bank name
+PASS  the preview writes nothing — rows still 4
+PASS  single-amount rows derive direction from the balance — sources=[["ELECTRICITY BILL","debit","assumed"],["SALARY OCTOBER","credit","balance"],["BOLT RIDE","debit","balance"]]
+PASS  weakly-sourced rows are flagged, not presented as fact — flagged=3/3
+PASS  a first import writes its rows — status=200 added=4 skipped=0 rejected=0
+PASS  the account is labelled from the user's own name — accountLabel=Pass A 1791325894732
+PASS  the ledger really has the rows — ledger rows=4
+PASS  re-importing the same file under the same label adds zero — added=0 skipped=4
+PASS  the ledger did not grow — ledger rows=4
+PASS  re-import reuses the same account — first=3eec4492-2ab6-4d00-ae60-de2ee14c74d3 second=3eec4492-2ab6-4d00-ae60-de2ee14c74d3
+PASS  the same file under a different label creates a distinct account — accountId=f761ea5f-507c-4389-86a1-6c8f0d49d9bf added=4
+PASS  a per-row direction override is what gets written — BOLT RIDE direction=debit (preview default would be debit via balance; override pins it explicitly)
+PASS  un-overridden rows keep their derived direction — SALARY direction=credit
+PASS  a malformed file is rejected with a stable code — status=422 code=undefined
+PASS  a malformed file writes nothing — rows before=15 after=15
+PASS  the bulk choice moves the defaulted rows to income — SALARY=credit DSTV=credit
+PASS  the bulk choice does NOT override a balance-derived row — BOLT RIDE=debit (balance proved a decrease, so it stays a debit)
+PASS  the pass leaves no rows behind — rows remaining=4
+
+22/22 checks passed
+
+signin: signed in, user 48a86896…
+cleanup: removed 4 pass accounts

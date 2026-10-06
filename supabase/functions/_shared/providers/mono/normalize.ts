@@ -16,6 +16,10 @@ import {
   type NormalizedTransaction,
   type SemanticType,
 } from "../../finance.ts";
+import {
+  budgetEligibleFor,
+  classifyTransaction,
+} from "../../semantics.ts";
 import type {
   DataStatus,
   ProviderAccount,
@@ -73,39 +77,11 @@ export function toDataStatus(raw: unknown): DataStatus | null {
 /**
  * Deterministic semantic classification.
  *
- * `unknown` is deliberately absent as an outcome for a resolved direction: a
- * row that reached here has a valid direction and amount, so it is either
- * money in or money out. Transfer-vs-expense and internal-vs-external are NOT
- * decided here — internal transfers are detected across rows later, by the
- * deterministic pairing pass in the sync pipeline.
+ * Moved to `_shared/semantics.ts` in Phase 12 so CSV imports can share the
+ * exact same rules instead of copying them. Behaviour is unchanged: this module
+ * re-exports the shared implementation, so Mono's output is identical.
  */
-export function classifyTransaction(
-  direction: "credit" | "debit",
-  category: string | null,
-  narration: string,
-): SemanticType {
-  const cat = (category ?? "").toLowerCase();
-  const text = normalizeMerchantName(narration);
-
-  if (cat.includes("refund") || text.includes("refund") || text.includes("reversal")) {
-    return "refund";
-  }
-  if (cat.includes("salary") || cat.includes("payroll") || cat.includes("income")) {
-    return "income";
-  }
-  if (cat.includes("transfer") || text.includes("transfer")) {
-    return direction === "credit" ? "external_transfer" : "expense";
-  }
-  if (cat.includes("charge") || cat.includes("fee")) {
-    return "expense";
-  }
-  return direction === "credit" ? "income" : "expense";
-}
-
-/** Internal transfers are decided across rows and are never budget-eligible. */
-function budgetEligibleFor(semanticType: SemanticType): boolean {
-  return semanticType !== "internal_transfer";
-}
+export { classifyTransaction, budgetEligibleFor };
 
 /**
  * Normalise a Mono account payload.

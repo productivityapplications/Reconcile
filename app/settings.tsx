@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ChevronRight, CircleUser, CreditCard, Info, LogOut, Shield } from "lucide-react-native";
+import { ChevronRight, CircleUser, CreditCard, Info, LogOut, Shield, Upload } from "lucide-react-native";
 import { Avatar } from "../src/components/Avatar";
 import { Button } from "../src/components/Button";
 import { Card } from "../src/components/Card";
@@ -29,7 +29,7 @@ import {
   type UserProfile,
 } from "../src/lib/db";
 import { useSession } from "../src/lib/session";
-import { MONO_ENABLED } from "../src/lib/flags";
+import { CSV_IMPORT_ENABLED, MONO_ENABLED } from "../src/lib/flags";
 import { colors } from "../src/theme/colors";
 import { radius } from "../src/theme/radius";
 import { spacing } from "../src/theme/spacing";
@@ -310,6 +310,18 @@ export default function SettingsScreen() {
               />
             ) : null}
           </Card>
+          {/* Phase 12: CSV import entry point. */}
+          {CSV_IMPORT_ENABLED ? (
+            <Card variant="paper" testID="settings-import">
+              <SettingRow
+                icon={<Upload size={20} color={colors.ink} strokeWidth={1.5} />}
+                label="Import a bank CSV"
+                hint="Add transactions from a statement export"
+                onPress={() => router.push("/import-csv")}
+                testID="settings-import-csv"
+              />
+            </Card>
+          ) : null}
           {/* Phase 11: the bank has lapsed its consent. Say so plainly and
               offer the reconnect path, rather than leaving the account listed
               as if it were still live. */}

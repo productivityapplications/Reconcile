@@ -1,4 +1,5 @@
 export {
+  CSV_CAPABILITIES,
   DEMO_CAPABILITIES,
   MONO_CAPABILITIES,
   type ProviderId,

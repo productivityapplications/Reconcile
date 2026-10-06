@@ -292,6 +292,136 @@ export async function waitForConnection(
   return null;
 }
 
+// ------------------------------------------------------ CSV import (Phase 12)
+
+/** Column mapping the server understands. Header text -> canonical role. */
+export interface CsvColumnMapping {
+  date?: string;
+  description?: string;
+  debit?: string;
+  credit?: string;
+  amount?: string;
+  balance?: string;
+  reference?: string;
+}
+
+export interface CsvRowIssue {
+  rowNumber: number;
+  reason: string;
+  detail: string;
+}
+
+export interface CsvPreviewResult {
+  /** Server could not recognise the columns; the UI must offer mapping. */
+  needsMapping: boolean;
+  headers?: string[];
+  missingRequired?: string[];
+  message?: string;
+  /** Detected column layout. "unknown" means the UI must offer mapping. */
+  layoutId?: string;
+  /** Human shape description, e.g. "date, narration, debit, credit, balance". */
+  layoutLabel?: string | null;
+  ambiguousLayout?: boolean;
+  totalRows?: number;
+  parsed?: number;
+  parsedOk?: number;
+  added?: number;
+  duplicates?: number;
+  duplicateWithinFile?: number;
+  /** Rows whose direction came from a weak signal (balance, or assumed). */
+  assumedDirectionCount?: number;
+  issues?: CsvRowIssue[];
+  issueCount?: number;
+  sample?: CsvSampleRow[];
+}
+
+/**
+ * One row echoed back for the preview.
+ *
+ * `directionSource` and `needsDirectionConfirmation` let the preview separate a
+ * direction the file stated from one we inferred, so the user can see which rows
+ * are worth checking.
+ */
+export interface CsvSampleRow {
+  rowNumber: number;
+  date: string;
+  description: string;
+  amountMinor: number;
+  direction: string;
+  directionSource: string;
+  needsDirectionConfirmation: boolean;
+}
+
+export interface CsvImportResult {
+  layoutId: string;
+  layoutLabel: string | null;
+  ambiguousLayout?: boolean;
+  assumedDirectionCount?: number;
+  totalRows: number;
+  parsed: number;
+  added: number;
+  skipped: number;
+  rejected: number;
+  duplicateWithinFile: number;
+  issueCount: number;
+  issues: CsvRowIssue[];
+  connectionId: string;
+  accountId: string;
+  accountLabel: string;
+}
+
+export interface CsvImportInput {
+  fileName: string;
+  csvContent: string;
+  /** User-supplied name for the account. This is the bank name we display. */
+  accountLabel?: string;
+  mapping?: CsvColumnMapping | null;
+  /** Direction to assume for rows nothing resolved. Defaults to expense. */
+  assume?: "debit" | "credit";
+  /** Per-row direction overrides from the preview, keyed by row number. */
+  directionOverrides?: Record<number, "debit" | "credit"> | null;
+}
+
+/**
+ * Parse a file and report what an import would do, without writing anything.
+ *
+ * The CSV travels in the request body and is never stored: the server parses
+ * it in memory and returns only counts and a few sample rows.
+ */
+export async function previewCsv(
+  input: CsvImportInput,
+): Promise<CsvPreviewResult> {
+  const { data, error } = await getSupabase().functions.invoke("csv-import", {
+    body: { ...input, preview: true },
+  });
+  // The server answers an unrecognised header row with 422 and a needsMapping
+  // body. That is a valid answer to a preview, not a failure, so the body is
+  // read out of the error rather than thrown.
+  if (error) {
+    if (isNeedsMapping(data)) return data as unknown as CsvPreviewResult;
+    throw new Error(friendly(error, "Could not read that file."));
+  }
+  return data as CsvPreviewResult;
+}
+
+/** True when a failed invoke is really the "please map the columns" response. */
+function isNeedsMapping(data: unknown): boolean {
+  return (
+    typeof data === "object" &&
+    data !== null &&
+    (data as { needsMapping?: unknown }).needsMapping === true
+  );
+}
+
+/** Commit an import. Returns counts plus the connection/account it created. */
+export async function importCsv(input: CsvImportInput): Promise<CsvImportResult> {
+  const { data, error } = await getSupabase().functions.invoke("csv-import", {
+    body: { ...input, preview: false },
+  });
+  if (error) throw new Error(friendly(error, "Could not import that file."));
+  return data as CsvImportResult;
+}
+
 export async function getPendingReviews(): Promise<ReviewItem[]> {
   const { data, error } = await getSupabase()
     .from("transaction_reviews")

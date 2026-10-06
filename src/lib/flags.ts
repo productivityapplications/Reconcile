@@ -21,3 +21,10 @@ export const MONO_ENABLED = process.env.EXPO_PUBLIC_FEATURE_MONO === "true";
  */
 export const MONO_PUBLIC_KEY =
   process.env.EXPO_PUBLIC_MONO_PUBLIC_KEY ?? "";
+
+/**
+ * Phase 12: CSV import, the primary data path while Mono live keys are
+ * pending. Default ON — a user with no provider access can still get real
+ * transactions in.
+ */
+export const CSV_IMPORT_ENABLED = process.env.EXPO_PUBLIC_FEATURE_CSV_IMPORT !== "false";

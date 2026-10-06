@@ -9,11 +9,13 @@
     "src",
     "tests",
     "supabase/functions/_shared/finance.ts",
+    "supabase/functions/_shared/semantics.ts",
     "supabase/functions/_shared/demo.ts",
     "supabase/functions/_shared/envelope.ts",
     "supabase/functions/_shared/redirect.ts",
     "supabase/functions/_shared/providers/types.ts",
     "supabase/functions/_shared/providers/demo/adapter.ts",
+    "supabase/functions/_shared/csv/**/*.ts",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ]

@@ -12,7 +12,7 @@ import {
   syncConnection,
   type BankAccount,
 } from "../src/lib/db";
-import { MONO_ENABLED } from "../src/lib/flags";
+import { CSV_IMPORT_ENABLED, MONO_ENABLED } from "../src/lib/flags";
 import { spacing } from "../src/theme/spacing";
 
 export default function DemoScreen() {
@@ -187,6 +187,19 @@ export default function DemoScreen() {
           {MONO_ENABLED ? "Powered by Mono" : "Coming soon"}
         </Text>
       </View>
+      {/* Phase 12: CSV import is the primary data path while Mono live keys are
+          pending, so it is offered alongside the hosted connection. */}
+      {CSV_IMPORT_ENABLED ? (
+        <View style={{ marginTop: spacing.sm }}>
+          <Button
+            title="Import a bank CSV"
+            variant="ghost"
+            onPress={() => router.push("/import-csv")}
+            accessibilityLabel="Import a bank CSV"
+            testID="demo-import-csv"
+          />
+        </View>
+      ) : null}
     </FormScaffold>
   );
 }
