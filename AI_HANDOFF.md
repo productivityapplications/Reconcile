@@ -16,7 +16,7 @@ command**. The frontend layer (Phases 3–10) remains closed and untouched.
 | Last verified APK (operator-verified on device) | `https://expo.dev/artifacts/eas/x9OmdVZTcOFENaOOEC4CAbIjsqr7n0SpSevVOPyvay0.apk` (Phase 10B.5) |
 | Phase 11 preview APK, **flag ON + native redirect fix** (**not** operator-verified) | `https://expo.dev/artifacts/eas/gv8_HhXk9dE1KssrnogXsaZ0nLX-bD75NPgTjxrCXYc.apk` (from `cc89033`) |
 | Live web alias | `https://reconcile-uhhh2.vercel.app` |
-| Phase 11 commits | `83eb253` feature · `43da122` handoff · `681134c` operator flag flip · `4ea3a3c` web-widget fix |
+| Phase 11 commits | `83eb253` feature · `43da122` handoff · `681134c` operator flag flip · `4ea3a3c` web-widget fix · `ec74e85` close-out handoff · `cc89033` native redirect fix · `26713e0` handoff |
 | `demo-v1` tag | `b05b4c2` (**note:** the handoff previously claimed `991851b`; the actual tag points at `b05b4c2`) |
 | Source-of-truth doc index | "Source-of-truth document index", immediately below |
 | Environment / credentials | "Environment state", immediately below |
@@ -24,12 +24,13 @@ command**. The frontend layer (Phases 3–10) remains closed and untouched.
 > This file's most recent update is `git log -n 1 -- AI_HANDOFF.md`.
 
 **What the next session does.** Read this file top to bottom. Confirm state
-with `git fetch origin && git status`. Both Mono feature flags are now **ON**
+with `git fetch origin && git status`. Both Mono feature flags are **ON**
 (`EXPO_PUBLIC_FEATURE_MONO=true` in `.env.production`, `FEATURE_MONO=true` as an
-Edge Function secret). Before Phase 12, the operator still needs to run
-`scripts/mono-webhook-verify.cjs` (one command, see "Phase 11 checkpoint") and
-complete the native smoke test. **Phase 12 — RevenueCat monetization** is next
-once those are done.
+Edge Function secret). Phase 11 stays **open**: live data depends on Mono
+business KYB, which has not started, so live verification is deferred
+indefinitely — this is **not** a blocker. Per
+`IMPLEMENTATION_PLAN.md` v4 the next phase is **Phase 12 — CSV import**, which
+becomes the primary data path. RevenueCat monetization is no longer scheduled.
 
 Everything below this block is per-phase history, newest checkpoint at the
 bottom of that run of entries. Historical sections are preserved verbatim as

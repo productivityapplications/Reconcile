@@ -329,7 +329,7 @@ Server-only:
 
 The plan is frontend-first with dual-surface verification, per
 `SKILL_LEAN_DELIVERY.md` Stage 4. The authoritative phase list is
-`IMPLEMENTATION_PLAN.md` v3.
+`IMPLEMENTATION_PLAN.md` v4.
 
 **Completed:**
 - Phase 0 — Blueprint
@@ -339,17 +339,27 @@ The plan is frontend-first with dual-surface verification, per
 - Phase 4 — Wave 1–3 primitives
 - Phase 5 — Wave 4–5: charts, accent, motion, haptics
 - Phase 6 — Wave 6–7: rows, states, shells, navigation
-
-**Full build:**
 - Phase 7 — Wave 8 feature organisms + native build pipeline
 - Phase 8 — Screen rebuild: onboarding, auth, Home, Review
 - Phase 9 — Screen rebuild: Activity, Detail, Budget, Insights, Ask, Settings
 - Phase 10 — Dual-surface agent-as-user pass + `SKILL_FRONTEND_DESIGN.md` v1
-- Phase 11 — Mono integration
-- Phase 12 — RevenueCat monetization
-- Phase 13 — Real AI (OpenAI)
-- Phase 14 — Security hardening and deletion
-- Phase 15 — E2E, store packaging, Shipaton release
+
+**Open:**
+- Phase 11 — Mono integration. Implementation complete and sandbox-verified on
+  device. Live data requires Mono business KYB, which has not started, so live
+  verification is deferred indefinitely. Mono stays behind its feature flags.
+  Not a blocker for the phases below.
+
+**Full build:**
+- Phase 12 — CSV import. The primary data path until Mono live keys exist.
+- Phase 13 — Custom budgets (multiple named budgets, arbitrary periods and scopes)
+- Phase 14 — Real AI (OpenAI)
+- Phase 15 — Security hardening and deletion
+- Phase 16 — E2E and store packaging
+
+RevenueCat monetization was originally planned as Phase 12. It is deferred
+indefinitely: the hackathon deadline passed and subscriptions are not a current
+goal. No phase assumes a monetization layer.
 
 From Phase 7 onward, every phase is verified on **both** web (Vercel +
 Playwright) and native (EAS preview build installed on a real Android device).

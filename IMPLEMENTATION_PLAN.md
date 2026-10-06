@@ -1,7 +1,9 @@
 # Reconcile — Implementation Plan
 
-**Version:** 3 — frontend-first with native verification.
-**Supersedes:** v1 (horizontal layers), v2 (web-only verification).
+**Version:** 4 — frontend-first with native verification; monetization removed,
+CSV import and custom budgets added.
+**Supersedes:** v1 (horizontal layers), v2 (web-only verification), v3 (which
+scheduled RevenueCat monetization as Phase 12).
 **Method:** one phase at a time. Implement → test → inspect → deploy (web + native) → verify as user → commit → checkpoint → STOP.
 
 ---
@@ -17,12 +19,15 @@ The full build is **frontend-first**, per `SKILL_LEAN_DELIVERY.md` §2 Stage 4:
 3. Deploy and verify visually — **on web and on a real device.**
 4. Layer real backend integrations underneath.
 5. Harden.
-6. Package for Google Play and App Store.
+6. Package and publish.
 
 The demo already delivered the working data layer (auth, provider abstraction,
 demo provider, sync, review, budget, insights, deterministic Ask). The full
 build's frontend phases replace the skeletal UI. The backend phases replace the
-demo scaffolding with real providers, real AI, and real payments.
+demo scaffolding with real providers, real AI, and richer budgeting.
+
+**No monetization layer is planned.** RevenueCat was scheduled as Phase 12 in
+v3 and is now deferred indefinitely; see the note at the end of §2.
 
 **Verification is dual-surface.** Web (Vercel + Playwright) is fast iteration.
 Native (EAS build → installed on a real Android device) is the reality check.
@@ -46,7 +51,8 @@ on web.
 | 7 | Wave 8 feature organisms + native build pipeline | ✅ Complete |
 | 8 | Screen rebuild: onboarding, auth, Home, Review | ✅ Complete |
 | 9 | Screen rebuild: Activity, Detail, Budget, Insights, Ask, Settings | ✅ Complete |
-| 10 | Dual-surface audit and `SKILL_FRONTEND_DESIGN.md` v1 | 🔄 In progress — Phase 10A, 10A.5, 10B, 10B.5 complete; Phase 10B close pending |
+| 10 | Dual-surface audit and `SKILL_FRONTEND_DESIGN.md` v1 | ✅ Complete — 10A, 10A.5, 10B, 10B.5, and the 10B close |
+| 11 | Mono integration | 🔄 Implementation complete; sandbox verified on device. Live keys pending Mono KYB |
 
 Phase 2 was delivered in two slices, deployed to Vercel, and verified by the
 operator in a browser. Browser-runtime bugs found and fixed (CORS preflight on
@@ -54,11 +60,13 @@ Edge Functions, missing `babel-preset-expo` + whole-object env reads,
 per-weight font family mismatch). Learnings recorded in
 `SKILL_LEAN_DELIVERY.md` §8.
 
-Phases 3–10B.5 are implemented, tested, deployed, and committed. Per-phase
-commits, defect lists, agent-as-user pass evidence, and the exact next task are
-recorded in `AI_HANDOFF.md`, whose "Current state" block is authoritative on
-status. This table is a status summary, not a substitute for that file; if the
-two disagree, `AI_HANDOFF.md` wins and this table is corrected.
+Phases 3–10 are implemented, tested, deployed, and committed. Phase 11 is
+implemented and sandbox-verified; it stays open because live data depends on
+Mono business KYB, which has not started. Per-phase commits, defect lists,
+agent-as-user pass evidence, and the exact next task are recorded in
+`AI_HANDOFF.md`, whose "Current state" block is authoritative on status. This
+table is a status summary, not a substitute for that file; if the two disagree,
+`AI_HANDOFF.md` wins and this table is corrected.
 
 ---
 
@@ -169,6 +177,14 @@ surfaces. Skill v1 committed.
 **Objective:** Replace the demo provider with the real Mono adapter behind the
 same `FinancialProvider` interface.
 
+**Status: implementation complete, sandbox verified on device.** The Connect Link
+was completed, the account persisted, and sync ran without error. Live data
+requires Mono business KYB, which **has not started**, so live verification is
+deferred indefinitely. Mono stays behind both `EXPO_PUBLIC_FEATURE_MONO` (client)
+and `FEATURE_MONO` (Edge Function secret). **This is not a blocker for the phases
+below** — Phase 12 gives the product a primary data path that does not depend on
+Mono at all.
+
 **Deliverable:** Mono client in Edge Functions; `MONO_SECRET_KEY` as a server
 secret; institution discovery; connection session; account persistence;
 webhook with authenticity + idempotency; reauth handling.
@@ -179,21 +195,69 @@ full loop against Mono sandbox.
 
 **Commit:** `feat: add mono financial data provider (Phase 11)`
 
-#### Phase 12 — RevenueCat monetization
-**Objective:** Add subscriptions, entitlement gating, paywall, trial, restore.
+#### Phase 12 — CSV import
+**Objective:** Let the user import transactions from a CSV exported from their
+bank. CSV is the **primary data path** until Mono live keys become available, so
+the product is usable end to end without any third-party provider.
 
-**Deliverable:** SDK installed; products `reconcile_pro_monthly` and
-`reconcile_pro_annual`; offering `default`; entitlement `pro`; 7-day trial;
-contextual paywall; restore purchases; webhook with idempotency; entitlement
-cache.
+**Deliverable:**
+- Provider `csv` registered in the provider registry, so ingestion reuses the
+  same pipeline as Mono and the demo provider.
+- Creates synthetic `bank_connections` and `bank_accounts` rows with
+  `provider_id = "csv"`.
+- CSV parser auto-detecting common Nigerian bank formats by header inspection —
+  at least three of GTBank, UBA, Access Bank, Zenith, First Bank, Sterling.
+- Column-mapping fallback UI when headers are not recognized.
+- Date parser for `dd/mm/yyyy`, `yyyy-mm-dd`, `dd-Mon-yyyy`, and common
+  variants.
+- Amount parser handling comma separators, currency symbols, and separate debit
+  and credit columns.
+- Dedupe via a deterministic hash of `(date | amount | narration)`, so
+  re-importing the same CSV adds zero duplicates.
+- Import preview showing rows that will be added versus rows already present.
+- Import confirmation step.
+- Feature flag `EXPO_PUBLIC_FEATURE_CSV_IMPORT`, default `true`.
+- UI entry points: Settings → Import, and the Connect flow → Import CSV.
 
-**Acceptance:** Premium features unlock only with active entitlement; trial and
-restore paths testable on both web (RevenueCat Test Store) and native (Google
-Play sandbox); store products configured.
+**Acceptance:**
+- Given a GTBank CSV, transactions appear in Activity.
+- Re-importing the same CSV adds zero duplicates.
+- A malformed CSV shows a clear error and does not crash.
+- Column mapping appears when headers are not recognized.
 
-**Commit:** `feat: add revenuecat subscriptions and paywall (Phase 12)`
+**Commit:** `feat: add csv import provider (Phase 12)`
 
-#### Phase 13 — Real AI (OpenAI categorization + Ask Reconcile upgrade)
+#### Phase 13 — Custom budgets
+**Objective:** Extend the budget model from a single monthly budget to multiple
+named budgets spanning arbitrary periods and scopes.
+
+**Deliverable:**
+- Schema migration: `budgets` gains `name` (text, nullable for backward
+  compatibility), `scope_type` (text: `all` | `categories`), and
+  `scope_category_ids` (`uuid[]` or a link table); `period_type` expands to
+  include `weekly` and `custom`.
+- Unique constraint changes from `(user_id, period_type, period_start)` to
+  `(user_id, name)`, with a partial unique on `(user_id)` where `name IS NULL`
+  for the default budget.
+- Budget engine updated to compute spend per budget using its own period and
+  scope.
+- Budget list screen replacing the current single-budget screen.
+- Budget creation flow: name, period type (weekly / monthly / custom), date
+  range, and scope picker (all categories or a selection).
+- Home screen shows a designated "primary" budget with a way to switch it.
+- Insights aware of multiple budgets (no crash when more than one exists).
+- The existing monthly budget continues to work as the default.
+
+**Acceptance:**
+- The user creates a budget named "Business Equipment" with a 3-month custom
+  range and a category scope of "Shopping".
+- Transactions in that category during that range count against it.
+- The existing monthly budget still works unchanged.
+- Home still shows the monthly default until the user designates another.
+
+**Commit:** `feat: add custom budgets (Phase 13)`
+
+#### Phase 14 — Real AI (OpenAI categorization + Ask Reconcile upgrade)
 **Objective:** Add server-side OpenAI for categorization fallback and upgrade
 Ask Reconcile from deterministic-only to tool-driven LLM.
 
@@ -205,9 +269,9 @@ prompt-injection defense; caching of confirmed merchant patterns.
 resolve user ownership server-side; no arbitrary SQL; injection tests pass.
 Verified on web and native.
 
-**Commit:** `feat: add openai categorization and tool-driven ask (Phase 13)`
+**Commit:** `feat: add openai categorization and tool-driven ask (Phase 14)`
 
-#### Phase 14 — Security hardening and deletion
+#### Phase 15 — Security hardening and deletion
 **Objective:** Close the security and lifecycle gaps the demo deferred.
 
 **Deliverable:** Rate limits on sync and AI; logging redaction; a full deletion
@@ -218,32 +282,31 @@ scan).
 **Acceptance:** All security tests pass; no secrets in any built bundle (web or
 native); deletion leaves no user data.
 
-**Commit:** `feat: add security hardening and account deletion (Phase 14)`
+**Commit:** `feat: add security hardening and account deletion (Phase 15)`
 
 ### RELEASE
 
-#### Phase 15 — E2E, store packaging, Shipaton release
-**Objective:** Final packaging for the Shipaton submission.
+#### Phase 16 — E2E and store packaging
+**Objective:** Final packaging and publication of the app.
 
 **Deliverable:**
 - E2E tests on the full build (web + native).
 - EAS production build (Android AAB, iOS IPA if in scope) uploaded to Google
   Play (internal testing track at minimum) and App Store Connect (if in scope).
 - 1024×1024 icon.
-- 1179×2556 screenshot without device framing.
-- Sub-two-minute demo video.
-- Judge promo access path.
-- US download verification.
-- Devpost submission.
+- Store screenshots.
+- Published release when ready.
 
 **Acceptance:**
-- New public release within the Shipaton submission period.
+- E2E critical journeys pass on web and native.
 - The app is fully published on Google Play (required) and the App Store (if in
   scope).
-- Premium can be tested end to end.
-- Demo is under two minutes.
 
-**Commit:** `chore: ship reconcile for hackathon submission (Phase 15)`
+**Commit:** `chore: ship reconcile (Phase 16)`
+
+> **RevenueCat monetization was originally planned as Phase 12.** It is deferred
+> indefinitely. The hackathon deadline passed; subscriptions are not a current
+> goal. The schema and code do not assume any monetization layer.
 
 ---
 
@@ -274,31 +337,32 @@ native); deletion leaves no user data.
 - Agent-as-user pass completed on web and native for every screen.
 - Native build (Android APK/AAB) installs and runs on a real device without
   crash.
-- Mono integration live and verified on both surfaces.
-- RevenueCat entitlement live and testable on both surfaces.
+- CSV import working end to end on web and native.
+- Custom budgets working on web and native.
+- Mono integration sandbox-verified on both surfaces; live verification
+  deferred pending Mono KYB.
 - AI categorization and Ask Reconcile working under the allow-listed tool model.
 - Security hardening complete.
 - Account deletion and disconnect flows work.
 - E2E critical journeys pass on web and native.
 - Google Play listing published. App Store listing published if iOS is in scope.
-- Shipaton submission package complete.
 
 ---
 
 ## 5. External dependencies
 
-- Mono business onboarding / KYB and live credentials.
+- Mono business onboarding / KYB and live credentials. **Not started**; live
+  verification deferred indefinitely. Not a blocker for Phases 12–16.
 - Current Mono institution coverage must be fetched dynamically.
 - Supabase project and Edge Function secrets.
-- RevenueCat project and store products.
 - OpenAI API key.
 - Apple and Google developer accounts and store review.
 - Final product-name availability check.
 - **Expo account** (free) — required for EAS build.
 - **EAS CLI** (installed locally) — required for native builds from Phase 7.
-- **Google Play developer account** — $25 one-time fee. Required for Phase 15.
+- **Google Play developer account** — $25 one-time fee. Required for Phase 16.
 - **Apple Developer account** — $99/year. Required if iOS is in scope for
-  Phase 15.
+  Phase 16.
 
 ---
 
