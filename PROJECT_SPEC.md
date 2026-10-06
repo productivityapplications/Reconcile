@@ -17,7 +17,7 @@ People with multiple bank accounts have fragmented financial information. They r
 Mobile-first adults in Nigeria with one or more supported bank accounts who want low-friction budgeting. The architecture must later support additional countries.
 
 ### Roles
-- **Customer:** owns their profile, linked accounts, transactions, review state, budgets, and subscription.
+- **Customer:** owns their profile, linked accounts, transactions, review state, and budgets.
 - **Operator/Admin:** minimal internal support role; no broad financial-data browsing UI in MVP.
 
 ### Value proposition
@@ -65,15 +65,12 @@ Reconcile does **not**:
 - Monthly total and category budgets.
 - Home, Activity, Budget and Insights experiences.
 - Read-only Ask Reconcile.
-- RevenueCat subscription integration.
-- Free tier + 7-day Pro trial + Pro monthly/annual products.
-- Contextual paywall.
+- CSV import as the primary data path (Phase 12).
 - Disconnect account and delete application data flows.
 - E2E tests for core journeys.
-- Shipaton-ready icon, screenshot, demo, store and premium-access path.
+- Store-ready icon and screenshots.
 
 ### SHOULD HAVE
-- CSV import.
 - Recurring-payment detection.
 - Prior-month comparisons.
 - Provider reauthorization UX.
@@ -136,15 +133,10 @@ Refunds reduce eligible spend. Internal transfers do not count as spending. Exte
 ### Forecast
 MVP forecast uses deterministic spend pace; do not show a projection when there is insufficient elapsed-period data.
 
-### Subscription
-Free supports the core loop with limits. Pro unlocks multi-bank, richer history, advanced insights, recurring detection, expanded AI and richer budgets. Pricing must be configurable through RevenueCat, not hard-coded.
-
-Initial target pricing in Nigeria:
-- Pro monthly: **₦1,500/month**
-- Pro annual: **₦12,000/year**
-- Trial: **7 days**
-
-These are provisional product decisions, not market claims.
+### Monetization
+None. Reconcile has no monetization layer, no paid tier, and no trial. The
+product is delivered free. See `IMPLEMENTATION_PLAN.md` for the current phase
+list.
 
 ## 4. Functional requirements
 
@@ -182,14 +174,8 @@ These are provisional product decisions, not market claims.
 
 ### AI
 - AI can classify and explain.
-- AI cannot alter bank data, balances, permissions or entitlements.
+- AI cannot alter bank data, balances, or permissions.
 - AI answers are grounded in deterministic read-only tool results.
-
-### Subscription
-- RevenueCat entitlement `pro` controls premium access.
-- Offering and package configuration comes from RevenueCat.
-- Restore purchases is available.
-- Trial or judge promo access is available.
 
 ## 5. Acceptance criteria
 
@@ -217,10 +203,9 @@ These are provisional product decisions, not market claims.
 - Narrations are treated as untrusted input.
 
 ### Monetization
-- RevenueCat is the source of subscription truth.
-- Pro entitlement gates premium features.
-- Paywall is contextual and remotely configurable.
-- Trial and restore can be tested.
+None. There is no subscription, no paid tier, no trial, and no paywall, so
+there is nothing to gate and nothing to verify. See
+`IMPLEMENTATION_PLAN.md` for the current phase list.
 
 ## 6. Privacy requirements
 
@@ -232,11 +217,12 @@ These are provisional product decisions, not market claims.
 - User can disconnect and delete application data.
 - Privacy copy must not promise zero developer access unless the implementation actually provides it.
 
-## 7. Shipaton product requirements
-
-The standard Shipaton entry must be a newly released app on an eligible store during the submission period, use RevenueCat for at least one purchase, provide a public demo under two minutes, include a 1024×1024 icon and 1179×2556 screenshot without device framing, and expose a free trial or judge promo path for premium testing. The app must also be accessible for judging in the United States.
-
-The product deliberately targets the **RevenueCat Design Award** through visual craft, data visualization, micro-interactions and animation, and the **HAMM Award** through contextual monetization, pricing/packaging, conversion instrumentation and premium access. BuildInPublic support is optional.
+## 7. Store distribution requirements
+Deferred. The previous hackathon-submission requirements — a submission-period
+release, a sub-two-minute demo, judge promo access for premium testing, and
+award positioning — no longer apply. Reconcile has no monetization layer, so
+premium-access requirements are moot. Publishing requirements are covered by
+Phase 16 of `IMPLEMENTATION_PLAN.md`.
 
 ## 8. Feature requirement matrix
 
@@ -336,17 +322,11 @@ The product deliberately targets the **RevenueCat Design Award** through visual 
 - **Edge cases:** prompt injection, question requiring unavailable data, zero matching transactions.
 - **Acceptance:** answer is grounded in returned data; no arbitrary SQL/tool execution.
 
-### F-09 Subscription
-- **Actor:** Customer / RevenueCat
-- **Preconditions:** app configured with RevenueCat products.
-- **Inputs:** selected package, purchase/restore action.
-- **Processing:** RevenueCat/store purchase → entitlement evaluation.
-- **Outputs:** active/inactive `pro` state.
-- **Permissions:** user gets only their entitlement.
-- **Validation:** store/RevenueCat validates purchase.
-- **Errors:** purchase cancelled, declined, unavailable, restored on another account.
-- **Edge cases:** webhook replay, delayed webhook, trial expiration, product unavailable in region.
-- **Acceptance:** premium access follows RevenueCat entitlement state, not client-only state.
+### F-09 Monetization
+Not applicable. Reconcile has no monetization layer — no subscription, paid
+tier, trial, or paywall — so there is no purchase flow to specify. If
+monetization is revived it will be added here deliberately. See
+`IMPLEMENTATION_PLAN.md` for the current phase list.
 
 ### F-10 Data deletion
 - **Actor:** Customer
@@ -357,7 +337,7 @@ The product deliberately targets the **RevenueCat Design Award** through visual 
 - **Permissions:** current user only.
 - **Validation:** confirmation token/state.
 - **Errors:** provider disconnect unavailable, partial deletion.
-- **Edge cases:** sync in progress, trial active, pending webhook.
+- **Edge cases:** sync in progress, pending webhook.
 - **Acceptance:** customer cannot access deleted application data after completion.
 
 ## 9. Screen-by-screen UI contract
@@ -378,8 +358,7 @@ The product deliberately targets the **RevenueCat Design Award** through visual 
 | Budget | Track plan | budget + derived spend | Edit/Ask | no budget |
 | Insights | Explain changes | derived metrics | Ask | insufficient data |
 | Ask | Conversational analysis | session + tool results | Send | no history/error |
-| Paywall | Convert to Pro | RevenueCat Offering | Trial/Purchase/Restore | unavailable |
-| Settings | Manage app | profile/subscription | Privacy/Accounts/Logout | n/a |
+| Settings | Manage app | profile/connections | Privacy/Accounts/Logout | n/a |
 | Privacy Controls | Manage data | connections + policy | Disconnect/Delete | operation errors |
 
 ### Responsive behavior
@@ -400,40 +379,21 @@ Event names:
 - `budget_created`
 - `insight_viewed`
 - `ai_question_asked`
-- `paywall_viewed`
-- `trial_started`
-- `purchase_completed`
-- `restore_completed`
 
 Allowed event properties:
 - app version;
 - country code;
 - provider ID;
 - screen name;
-- plan;
 - anonymous feature counts.
 
 Never send amounts, balances, full narrations, account numbers, provider credentials or raw transaction IDs to public analytics.
 
 ## 11. Monetization UX contract
-
-Do not hard-paywall the first useful experience.
-
-Primary conversion moments:
-1. After the user has reconciled their first meaningful set of transactions.
-2. When the user tries to connect a second bank on the free tier.
-3. When they open an advanced insight.
-4. When they exceed the free AI allowance.
-
-Paywall content:
-- short value headline;
-- 3–5 concrete Pro benefits;
-- monthly/annual packages;
-- visible trial terms;
-- restore purchases;
-- privacy/support link.
-
-No deceptive countdowns, fake scarcity or obstructive navigation.
+Deferred. Reconcile does not currently have a monetization layer, so there is
+no paywall, no upgrade moment, and no conversion surface to specify. If
+monetization is revived it will be added here deliberately. See
+`IMPLEMENTATION_PLAN.md` for the current phase list.
 
 ## 12. Data retention policy
 

@@ -45,10 +45,9 @@ Must have:
 - budgets;
 - insights;
 - Ask Reconcile;
-- RevenueCat Pro;
 - privacy/delete;
 - E2E;
-- store/Shipaton packaging.
+- store packaging.
 
 Should/Nice/Future/Out-of-scope are documented in `PROJECT_SPEC.md`.
 
@@ -74,14 +73,15 @@ Budget tab → create monthly total → optional category limits → save → de
 Question → safe intent/tool selection → deterministic query → validated result → AI explanation → display basis/context.
 
 ### Subscription
-Contextual Pro trigger → RevenueCat paywall → trial/purchase → entitlement `pro` → unlock → restore if needed.
+Not applicable. Reconcile has no monetization layer, so there is no
+subscription flow. See `IMPLEMENTATION_PLAN.md` for the current phase list.
 
 ### Delete
 Settings → privacy → confirmation/reauth → provider disconnect attempt → data deletion → sign out.
 
 ## 5. Functional requirements
 
-Functional requirements are centered on user-owned data isolation, provider-neutral transaction ingestion, immutable financial facts, review state, deterministic budgeting, read-only AI and RevenueCat entitlement gating.
+Functional requirements are centered on user-owned data isolation, provider-neutral transaction ingestion, immutable financial facts, review state, deterministic budgeting and read-only AI.
 
 ## 6. Business logic/state machines
 
@@ -94,13 +94,10 @@ Review:
 `needs_review → reconciled | excluded`
 `reconciled ↔ excluded` through explicit user action.
 
-Subscription:
-`free → trialing → pro | free`, and `free ↔ pro` as subscription status changes.
-
 ## 7. Data model
 
 Core entities:
-`users`, `bank_connections`, `bank_accounts`, `transactions`, `transaction_reviews`, `categories`, `merchant_rules`, `budgets`, `budget_categories`, `sync_runs`, `provider_events`, `ai_sessions`, `ai_messages`, `entitlement_cache`, `audit_events`.
+`users`, `bank_connections`, `bank_accounts`, `transactions`, `transaction_reviews`, `categories`, `merchant_rules`, `budgets`, `budget_categories`, `sync_runs`, `provider_events`, `ai_sessions`, `ai_messages`, `audit_events`.
 
 Money is integer minor units + ISO currency code.
 
@@ -114,8 +111,8 @@ Expo/React Native
 Supabase Auth + RLS
       ↓
 Supabase Edge Functions
-   ↙      ↓       ↘
-Mono    OpenAI   RevenueCat
+   ↙      ↓
+Mono    OpenAI
       ↓
 Postgres
 ```
@@ -124,7 +121,7 @@ Financial logic only consumes normalized provider-neutral data.
 
 ## 9. Technology stack
 
-Expo + React Native + TypeScript + Expo Router; React Native StyleSheet; Reanimated; SVG; Supabase; Mono; OpenAI; RevenueCat; EAS.
+Expo + React Native + TypeScript + Expo Router; React Native StyleSheet; Reanimated; SVG; Supabase; Mono; OpenAI; EAS.
 
 No microservices, Kafka, Kubernetes, custom auth service or unnecessary infrastructure.
 
@@ -137,7 +134,6 @@ Privileged Edge Functions:
 - `/ai/categorize`
 - `/ai/ask`
 - `/mono/webhook`
-- `/revenuecat/webhook`
 - `/account/delete`
 - `/csv/import`
 
@@ -224,7 +220,7 @@ Interaction craft:
 ## 16. Third-party integrations
 
 ### Mandatory
-Supabase, Mono, RevenueCat, OpenAI.
+Supabase, Mono, OpenAI.
 
 ### Optional
 CSV helper, OneSignal, analytics.
@@ -247,14 +243,8 @@ Tools:
 No arbitrary SQL, no money-moving tools, no authoritative financial arithmetic.
 
 ## 18. Payment architecture
-
-RevenueCat entitlement: `pro`.
-
-Products:
-- monthly;
-- annual.
-
-Paywall is contextual and remotely configurable via RevenueCat Offering. Launch with 7-day trial and judge promo fallback. Initial target pricing is ₦1,500/month or ₦12,000/year in Nigeria.
+Deferred. Reconcile does not currently have a monetization layer. See
+`IMPLEMENTATION_PLAN.md` for the current phase list.
 
 ## 19. Admin/operations
 
@@ -285,11 +275,11 @@ Must handle:
 
 ## 21. Testing strategy
 
-Unit: money, periods, categorization, transfer matching, budget, entitlement rules.
+Unit: money, periods, categorization, transfer matching, budget.
 
-Integration: RLS, sync, Mono adapter, webhook idempotency, RevenueCat webhook, AI tool contracts.
+Integration: RLS, sync, Mono adapter, webhook idempotency, AI tool contracts.
 
-E2E: onboarding, demo flow, review, budget, insights, AI, purchase/trial, restore, sandbox bank connection and deletion.
+E2E: onboarding, demo flow, review, budget, insights, AI, sandbox bank connection and deletion.
 
 Security: IDOR, user-ID substitution, RLS, webhook replay, prompt injection, secret exposure.
 
@@ -320,10 +310,10 @@ reconcile/
 ## 23. Environment configuration
 
 Client-safe:
-`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_REVENUECAT_IOS_KEY`, `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY`, `EXPO_PUBLIC_APP_ENV`.
+`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_APP_ENV`.
 
 Server-only:
-`SUPABASE_SERVICE_ROLE_KEY`, `MONO_SECRET_KEY`, `MONO_PUBLIC_KEY`, `MONO_WEBHOOK_SECRET`, `OPENAI_API_KEY`, `REVENUECAT_WEBHOOK_SECRET`.
+`SUPABASE_SERVICE_ROLE_KEY`, `MONO_SECRET_KEY`, `MONO_PUBLIC_KEY`, `MONO_WEBHOOK_SECRET`, `OPENAI_API_KEY`.
 
 ## 24. Phased implementation plan
 
@@ -385,19 +375,18 @@ Resolved before implementation:
 - transfer double-counting;
 - duplicate prevention;
 - low-confidence AI confirmation;
-- subscription source of truth;
 - privacy copy boundary;
 - provider abstraction;
-- demo/judge path;
+- demo path;
 - scope control;
 - E2E/security coverage.
 
-Remaining external decisions are explicitly external: provider/KYB approval, live coverage, store approvals, final product-name availability and production pricing validation.
+Remaining external decisions are explicitly external: provider/KYB approval, live coverage, store approvals and final product-name availability.
 
 # CODING AGENT START POINT
 
 Implement **Phase 1 — Mobile foundation and tooling** only.
 
-Read the five source-of-truth documents and repository state first. Do not implement authentication, Mono, AI, RevenueCat, transaction logic, budgets or later UI flows in Phase 1.
+Read the five source-of-truth documents and repository state first. Do not implement authentication, Mono, AI, transaction logic, budgets or later UI flows in Phase 1.
 
 After implementation: test → inspect diff → update `AI_HANDOFF.md` → commit → STOP.

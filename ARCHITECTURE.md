@@ -8,12 +8,11 @@ Expo Mobile App
         │
         ├── Supabase Auth
         ├── Supabase client + RLS
-        ├── RevenueCat SDK
         └── Edge Function calls
                   │
         ┌─────────┼─────────┐
         ▼         ▼         ▼
-      Mono     OpenAI   RevenueCat webhooks
+      Mono     OpenAI   provider webhooks
         │
         ▼
    Supabase Edge Functions
@@ -46,7 +45,8 @@ React Native `StyleSheet` + a small design-token system. Avoid a heavy UI framew
 **OpenAI API**, called only from server-side Edge Functions. Exact model ID is an implementation detail chosen from the current supported low-cost structured-output models.
 
 ### Payments
-**RevenueCat React Native SDK** for App Store/Google Play subscriptions.
+None. Reconcile does not move money, take payments, or sell subscriptions. See
+§10.
 
 ### Build/deployment
 **EAS Build/Submit** to Apple App Store/Google Play.
@@ -167,11 +167,6 @@ Unique by provider/event ID. Raw payload retention is short-lived only when oper
 ### ai_sessions / ai_messages
 User-scoped conversational state. Apply a short retention policy.
 
-### entitlement_cache
-`user_id`, `entitlement_key`, `active`, `expires_at`, `source`, `updated_at`.
-
-RevenueCat remains authoritative.
-
 ### audit_events
 `id`, `user_id`, `actor_type`, `action`, `resource_type`, `resource_id`, sanitized metadata, `created_at`.
 
@@ -188,7 +183,7 @@ Client may read own:
 
 Client does not write authoritative transaction facts.
 
-Provider ingestion, AI execution, RevenueCat webhooks and deletion orchestration are server operations.
+Provider ingestion, AI execution, provider webhooks and deletion orchestration are server operations.
 
 ## 8. API surface
 
@@ -209,9 +204,6 @@ Run a read-only financial Q&A through deterministic tools.
 
 ### `POST /functions/v1/mono/webhook`
 Process Mono events; verify authenticity and idempotency.
-
-### `POST /functions/v1/revenuecat/webhook`
-Process subscription events; verify authenticity and idempotency.
 
 ### `POST /functions/v1/account/delete`
 Orchestrate provider disconnect and application-data deletion.
@@ -239,19 +231,9 @@ Financial calculations happen in application/database logic. AI converts validat
 
 Transaction narrations are untrusted text and are explicitly delimited in prompts to mitigate prompt injection.
 
-## 10. RevenueCat architecture
-
-Entitlement: `pro`
-
-Products:
-- `reconcile_pro_monthly`
-- `reconcile_pro_annual`
-
-Offering: `default`
-
-Paywall: remotely configurable through RevenueCat.
-
-Free tier and 7-day trial are product rules; exact display/pricing is controlled through the RevenueCat Offering.
+## 10. Payment architecture
+Deferred. Reconcile does not currently have a monetization layer. See
+`IMPLEMENTATION_PLAN.md` for the current phase list.
 
 ## 11. Privacy/security architecture
 
@@ -271,11 +253,11 @@ Open-source status is not treated as a zero-knowledge guarantee.
 
 ## 12. Deployment
 
-Development: Expo + Supabase local + Mono sandbox + RevenueCat Test Store.
+Development: Expo + Supabase local + Mono sandbox.
 
 Staging: separate Supabase project/environment and Mono sandbox.
 
-Production: EAS + production stores + production Supabase + Mono live + RevenueCat store products.
+Production: EAS + production Supabase + Mono live.
 
 ## 13. Design architecture
 
