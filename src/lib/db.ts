@@ -394,22 +394,61 @@ export async function previewCsv(
   const { data, error } = await getSupabase().functions.invoke("csv-import", {
     body: { ...input, preview: true },
   });
+  if (!error) return data as CsvPreviewResult;
+
   // The server answers an unrecognised header row with 422 and a needsMapping
-  // body. That is a valid answer to a preview, not a failure, so the body is
-  // read out of the error rather than thrown.
-  if (error) {
-    if (isNeedsMapping(data)) return data as unknown as CsvPreviewResult;
-    throw new Error(friendly(error, "Could not read that file."));
-  }
-  return data as CsvPreviewResult;
+  // body. That is a valid answer to a preview, not a failure — but supabase-js
+  // returns `data: null` for EVERY non-2xx and parks the response body on
+  // `error.context`, so the mapping branch has to read it from there. Reading
+  // it from `data` is why this path reported a generic failure instead of
+  // offering the mapping screen.
+  const body = await errorBody(error);
+  if (isNeedsMapping(body)) return body as CsvPreviewResult;
+
+  throw new Error(friendlyFromBody(body) ?? friendly(error, "Could not read that file."));
 }
 
-/** True when a failed invoke is really the "please map the columns" response. */
-function isNeedsMapping(data: unknown): boolean {
+/**
+ * The JSON body of a failed Edge Function call, or null when there is none.
+ *
+ * `error.context` is the raw Response for an HTTP error, so the body has not
+ * been consumed yet and can still be read. A network failure has no context, and
+ * a relay error's body may not be JSON; both yield null rather than throwing.
+ */
+async function errorBody(error: unknown): Promise<unknown> {
+  const context = (error as { context?: unknown } | null)?.context;
+  if (!context || typeof context !== "object") return null;
+  const asResponse = context as { json?: unknown };
+  if (typeof asResponse.json !== "function") return null;
+  try {
+    return await (asResponse.json as () => Promise<unknown>)();
+  } catch {
+    // Body was absent or not JSON. The caller falls back to the error message.
+    return null;
+  }
+}
+
+/**
+ * Pull the server's own message out of an error body.
+ *
+ * The function returns a stable envelope: { error: { code, message, retryable } }
+ * (ARCHITECTURE.md §8). Surfacing that message is the difference between "We
+ * could not read that file" and supabase-js's "returned a non-2xx status code",
+ * which tells a user nothing.
+ */
+function friendlyFromBody(body: unknown): string | null {
+  if (typeof body !== "object" || body === null) return null;
+  const envelope = (body as { error?: { message?: unknown } }).error;
+  const message = envelope?.message;
+  return typeof message === "string" && message.length > 0 ? message : null;
+}
+
+/** True when a preview response is really the "please map the columns" answer. */
+function isNeedsMapping(body: unknown): boolean {
   return (
-    typeof data === "object" &&
-    data !== null &&
-    (data as { needsMapping?: unknown }).needsMapping === true
+    typeof body === "object" &&
+    body !== null &&
+    (body as { needsMapping?: unknown }).needsMapping === true
   );
 }
 
@@ -418,7 +457,14 @@ export async function importCsv(input: CsvImportInput): Promise<CsvImportResult>
   const { data, error } = await getSupabase().functions.invoke("csv-import", {
     body: { ...input, preview: false },
   });
-  if (error) throw new Error(friendly(error, "Could not import that file."));
+  // Same reason as previewCsv: the server's own message is on error.context, not
+  // on the generic FunctionsHttpError message.
+  if (error) {
+    const body = await errorBody(error);
+    throw new Error(
+      friendlyFromBody(body) ?? friendly(error, "Could not import that file."),
+    );
+  }
   return data as CsvImportResult;
 }
 

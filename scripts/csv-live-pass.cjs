@@ -148,6 +148,7 @@ const MALFORMED = "this is not a csv at all\njust prose\nno columns\n";
 
   // ---- 1. unknown headers -> needsMapping, no writes --------------------
   const beforeUnknown = await countRows();
+  const labelProbe = `Pass Probe ${Date.now()}`;
   const unknownRes = await call({
     fileName: "unknown.csv",
     csvContent: UNKNOWN_HEADERS,
@@ -162,6 +163,35 @@ const MALFORMED = "this is not a csv at all\njust prose\nno columns\n";
     "unknown headers write nothing",
     (await countRows()) === beforeUnknown,
     `rows before=${beforeUnknown} after=${await countRows()}`,
+  );
+
+  // ---- 1b. the same call through supabase-js, as the app makes it -------
+  // Added after a native-only failure that this file missed entirely.
+  // `call()` above uses raw fetch, which DOES populate the body on a non-2xx.
+  // The app goes through `supabase-js.functions.invoke`, which returns
+  // `data: null` for every non-2xx and parks the body on `error.context`.
+  // Testing only the raw path hid a bug that made the mapping screen
+  // unreachable in the real app.
+  const viaSdk = await auth.functions.invoke("csv-import", {
+    body: { fileName: "unknown.csv", csvContent: UNKNOWN_HEADERS, preview: true },
+  });
+  const sdkBody =
+    viaSdk.error && viaSdk.error.context && typeof viaSdk.error.context.json === "function"
+      ? await viaSdk.error.context.json()
+      : viaSdk.data;
+  check(
+    "needsMapping is reachable through supabase-js, not only via raw fetch",
+    Boolean(sdkBody && sdkBody.needsMapping === true),
+    `data=${viaSdk.data === null ? "null" : JSON.stringify(viaSdk.data).slice(0, 80)} ` +
+      `errorBody=${sdkBody ? JSON.stringify(sdkBody).slice(0, 120) : "none"}`,
+  );
+  const sdkGood = await auth.functions.invoke("csv-import", {
+    body: { fileName: "statement.csv", csvContent: LAYOUT_A, preview: true, accountLabel: labelProbe },
+  });
+  check(
+    "a recognised preview succeeds through supabase-js",
+    sdkGood.error === null && Boolean(sdkGood.data && sdkGood.data.layoutId),
+    `error=${sdkGood.error ? sdkGood.error.message : "none"} layoutId=${sdkGood.data ? sdkGood.data.layoutId : "none"}`,
   );
 
   // ---- 2. mapping fallback parses it -----------------------------------
