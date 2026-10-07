@@ -2,20 +2,23 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    // The Edge runtime resolves `jsr:` specifiers; the repo typecheck resolves
+    // against node_modules. Mapping them keeps one copy of the published
+    // Supabase types instead of a hand-written approximation.
+    "paths": {
+      "jsr:@supabase/supabase-js@2": ["./node_modules/@supabase/supabase-js"]
+    }
   },
   "include": [
     "app",
     "src",
     "tests",
-    "supabase/functions/_shared/finance.ts",
-    "supabase/functions/_shared/semantics.ts",
-    "supabase/functions/_shared/demo.ts",
-    "supabase/functions/_shared/envelope.ts",
-    "supabase/functions/_shared/redirect.ts",
-    "supabase/functions/_shared/providers/types.ts",
-    "supabase/functions/_shared/providers/demo/adapter.ts",
-    "supabase/functions/_shared/csv/**/*.ts",
+    // Every shared Edge Function module, including the Deno ambient shims, so
+    // nothing under supabase/functions/_shared can ship unchecked. Asserted by
+    // tests/typecheck-coverage.test.ts.
+    "supabase/functions/_shared/**/*.ts",
+    "supabase/functions/_shared/**/*.d.ts",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ]
