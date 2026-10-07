@@ -6,10 +6,10 @@
 cross-bank transaction reconciliation, budgeting, and read-only financial
 insights. Repo: `github.com/onyebuchidaniel60/Reconcile`.
 
-**Current phase:** Phase 11 — Mono integration — **live connect path verified
-against Mono sandbox; webhook acceptance verification pending one operator
-command**. The frontend layer (Phases 3–10) remains closed and untouched.
-**Phase 12 has not started.**
+**Current phase:** Phase 12 — CSV import — **implemented and verified against the
+deployed Edge Function; Phase 13 (custom budgets) is next**. Phase 11 stays open
+on live Mono data, which is deferred indefinitely and is not a blocker.
+**Phase 12 commit: `a6dde42`. Typecheck-coverage gate: `7fd138f`.**
 
 | Fact | Value |
 |---|---|
@@ -17,20 +17,24 @@ command**. The frontend layer (Phases 3–10) remains closed and untouched.
 | Phase 11 preview APK, **flag ON + native redirect fix** (**not** operator-verified) | `https://expo.dev/artifacts/eas/gv8_HhXk9dE1KssrnogXsaZ0nLX-bD75NPgTjxrCXYc.apk` (from `cc89033`) |
 | Live web alias | `https://reconcile-uhhh2.vercel.app` |
 | Phase 11 commits | `83eb253` feature · `43da122` handoff · `681134c` operator flag flip · `4ea3a3c` web-widget fix · `ec74e85` close-out handoff · `cc89033` native redirect fix · `26713e0` handoff |
-| `demo-v1` tag | `b05b4c2` (**note:** the handoff previously claimed `991851b`; the actual tag points at `b05b4c2`) |
+| `demo-v1` | annotated tag `b05b4c2` → commit `991851b` (docs: close demo phase and log learnings) |
+| Phase 12 commits | `a6dde42` csv import provider · `7fd138f` typecheck coverage gate |
 | Source-of-truth doc index | "Source-of-truth document index", immediately below |
 | Environment / credentials | "Environment state", immediately below |
 
 > This file's most recent update is `git log -n 1 -- AI_HANDOFF.md`.
 
 **What the next session does.** Read this file top to bottom. Confirm state
-with `git fetch origin && git status`. Both Mono feature flags are **ON**
+with `git fetch origin && git status`. Per `IMPLEMENTATION_PLAN.md` v4 the next
+phase is **Phase 13 — custom budgets**. Two Phase 12 items are **pending the
+operator**: the native smoke test of `expo-document-picker`, and the native file
+read over the content URI. The APK rebuild for Phase 12 is also outstanding.
+Both Mono feature flags remain **ON**
 (`EXPO_PUBLIC_FEATURE_MONO=true` in `.env.production`, `FEATURE_MONO=true` as an
-Edge Function secret). Phase 11 stays **open**: live data depends on Mono
-business KYB, which has not started, so live verification is deferred
-indefinitely — this is **not** a blocker. Per
-`IMPLEMENTATION_PLAN.md` v4 the next phase is **Phase 12 — CSV import**, which
-becomes the primary data path. RevenueCat monetization is no longer scheduled.
+Edge Function secret); `EXPO_PUBLIC_FEATURE_CSV_IMPORT` defaults true. Phase 11
+stays **open**: live data depends on Mono business KYB, which has not started, so
+live verification is deferred indefinitely — this is **not** a blocker. RevenueCat
+monetization is no longer scheduled.
 
 Everything below this block is per-phase history, newest checkpoint at the
 bottom of that run of entries. Historical sections are preserved verbatim as
@@ -845,6 +849,120 @@ human review pass, so v2 has not yet been earned.
 ---
 
 ## Per-phase checkpoints (history)
+
+## Phase 12 checkpoint — CSV import (`a6dde42`)
+
+- Commit: `a6dde42 feat: add csv import provider (Phase 12)`, plus
+  `7fd138f test: verify tsconfig covers all source files`.
+- CSV is the primary real-transaction path while Mono stays on sandbox keys.
+  Rows go through the same `_shared/ingest.ts` pipeline Mono uses, so dedupe,
+  internal-transfer pairing and review-state creation are identical.
+- Entry points: Settings → Import, and the connect flow → Import CSV. Route
+  `/import-csv`, registered in `app/_layout.tsx`. Flag
+  `EXPO_PUBLIC_FEATURE_CSV_IMPORT`, defaults true.
+
+### Layout-based parsing, not bank-based
+
+The first cut detected the **bank** from header aliases and it was wrong: GTBank's
+aliases were a superset of every other bank's, so it silently won all detection, and
+a UBA statement was stored under `gtbank_csv` and displayed as GTBank. Access and
+Zenith match each other exactly, so the bank was not recoverable from the file.
+
+What determines parsing is which columns are present and how the amount is
+expressed — not who exported the file. `formats.ts` became `layouts.ts` with three
+shapes named for their structure:
+
+- `date_narration_debit_credit_balance`
+- `transaction_date_value_date_narration_debit_credit_balance`
+- `date_description_amount_balance`
+
+The preview reports the shape it read ("Columns read: date, narration, debit,
+credit, balance"). The user's account label supplies the bank name, and is stored
+verbatim as `bank_accounts.display_name`. A layout matches when every required
+canonical field resolves through its aliases, so a `Description` column satisfies a
+`Narration` requirement.
+
+### Direction precedence
+
+A single unsigned `Amount` column states nothing about direction. Treating a
+positive value as a credit turned "ELECTRICITY BILL 12,000.00" into income and
+would corrupt budget math. `parseAmountCell` now reports whether a cell stated its
+direction at all (`explicit: null` for a bare positive), and `resolveDirection`
+applies a fixed order:
+
+1. explicit Type / DR-CR column
+2. trailing DR/CR marker in the narration
+3. explicit sign: leading `-`, accounting parentheses, or trailing DR/CR
+4. derived from the running balance (previous row in file order)
+5. **flagged expense** by default
+
+**Only steps 4 and 5 are marked as weak signals** (`needsDirectionConfirmation`).
+Step 5 defaults to expense because statement rows are predominantly debits; the
+safer wrong answer must not invent income.
+
+Narration markers match only as a trailing token or the whole string, so
+"CREDIT SUISSE FEES" is not filed as income.
+
+### Bulk toggle and per-row override
+
+**The bulk toggle applies only to defaulted (step 5) rows.** Balance-derived and
+marker-derived rows are not affected by it — they are evidence, not guesses, and a
+bulk preference must not override data. **Per-row override works on every row**,
+including balance-derived ones: tap to flip. A user override is never marked as
+needing confirmation.
+
+Pinned by `applies the bulk toggle only to defaulted rows, not balance-derived ones`
+and `lets a per-row override flip a balance-derived row the bulk toggle did not`.
+
+### Account identity
+
+`provider_account_id` comes from the file's own account number when it has one,
+else a hash of user id and account label. The previous key included
+`content.length`, which would have split one real account in two when a user
+re-downloaded an updated statement. Verified live: same file + same label reuses
+the account and adds zero rows; same file + different label creates a distinct
+account.
+
+### Verification
+
+- `tsc --noEmit` 0 · `eslint .` 0 · `jest` **352 passed** (79 new in
+  `tests/csv.test.ts`) · web export clean.
+- **Live integration 22/22** against the deployed `csv-import` function via
+  `scripts/csv-live-pass.cjs`, which drives it as a real signed-in user and reads
+  the ledger through the service role key rather than trusting the function's own
+  counts. Covers: needsMapping on unrecognised headers, layout reporting with no
+  bank name in the payload, direction derivation and per-row overrides reaching
+  the ledger, zero-duplicate re-import, distinct accounts per label, and malformed
+  files writing nothing. Evidence:
+  `docs/browser-tools/phase12-shots/csv-live-pass.txt`.
+
+### Typecheck gate lesson
+
+**`tsc --noEmit` returned exit 0 on a tree where new files were not in the include
+list. A typecheck gate is only as strong as its include patterns. A test now
+asserts coverage.**
+
+`tsconfig.json` enumerated individual `_shared` files by path, and none were in
+the new `csv/` directory, so a broken `../types.ts` import shipped while every local
+check was green and the deploy failed with `BOOT_ERROR`. `7fd138f` adds
+`tests/typecheck-coverage.test.ts`, which walks every `.ts`/`.tsx` under
+`supabase/functions/`, `src/` and `app/` and fails with the list of anything not
+covered, and widens `tsconfig` to include all of `_shared` via a narrow
+`deno.d.ts` ambient shim. Verified with a planted type error, which tsc now
+catches. No behaviour change.
+
+### Pending operator items
+
+- **APK rebuild pending.** The EAS Android build was still in flight when this
+  entry was written; Phase 12 has no operator-installed APK. `expo-document-picker`
+  is a new native dependency, so a rebuild is required rather than optional.
+- **Native smoke test of `expo-document-picker`: PENDING operator installation.**
+  Picker → pick → preview → mapping → commit has only been exercised on web.
+- **Native file read over content URI: PENDING operator verification.** Web reads
+  via the browser `File` API; native fetches `asset.uri`. The native path is
+  untested on a device.
+
+---
 
 ## Phase 1 checkpoint (evidence)
 - Expo 57 + React Native + TypeScript shell with Expo Router
@@ -2127,10 +2245,15 @@ Use:
 `IMPLEMENT → TEST → INSPECT → FIX → COMMIT → CHECKPOINT → STOP`
 
 ## Current phase
-**Phase 11 — Mono integration — implementation COMPLETE and the live connect
-path is verified against Mono sandbox. Two items remain: one operator command to
-prove signed webhook acceptance, and the native smoke test. Phase 12 not
-started.**
+**Phase 12 — CSV import — implemented and verified against the deployed Edge
+Function (22/22 live checks, 352 jest passing). Three items remain, all operator
+work: the APK rebuild, the native smoke test of `expo-document-picker`, and the
+native file read over the content URI. See the Phase 12 checkpoint above.
+Phase 13 (custom budgets) is next.**
+
+This section was previously "Phase 1", then "Phase 10B close", then "Phase 11".
+Each was stale when found — see "Current state" at the top of this file, which is
+authoritative.
 
 Delivered in `83eb253`: migration `000005_provider_events`; the frozen
 `FinancialProvider` contract, registry and demo/Mono adapters; the Mono client
@@ -2145,26 +2268,28 @@ iframe on web). With both flags on, `bank-connect-session` was confirmed to
 reach Mono's live `initiate` endpoint, reserve a `pending` connection row, and
 have the connect screen load a real `link.mono.co` Connect Link.
 
-This section was previously "Current phase: Phase 1", then "Phase 10B close".
-Both were stale and superseded — see "Current state" at the top of this file,
-which is authoritative.
-
 ## Next exact task
-**Finish Phase 11 verification**, then Phase 12. In order:
+**Phase 13 — custom budgets** (§Phase 13 of `IMPLEMENTATION_PLAN.md`) is next.
+Do not start it until the Phase 12 native items below are closed out, or state a
+reason for proceeding without them.
 
-1. Run `scripts/mono-webhook-verify.cjs` with `MONO_WEBHOOK_SECRET` in your
-   shell. Exact command in "Webhook acceptance — ONE operator command still
-   required". This proves signed acceptance, single-write, and duplicate
-   rejection.
-2. Install the preview APK (flag ON) and walk the connect → sync → review →
-   categorize → budget loop. This is the authoritative check for **completing** a
-   connection, which no automated pass can do.
-3. Confirm the deployed web build has the flag on (cached-export note).
+Phase 12 operator items, in order:
 
-Then: **Phase 12 — RevenueCat monetization** (§Phase 12 of
-`IMPLEMENTATION_PLAN.md`; `ARCHITECTURE.md` §10). Do not start Phase 13.
+1. Build the preview APK (`npx eas-cli build --platform android --profile
+   preview`). Required, not optional: `expo-document-picker` is a new native
+   dependency.
+2. Install it and walk Settings → Import → choose a CSV → preview → commit. This
+   is the only check of the native picker and the native content-URI file read;
+   web exercises neither.
+3. Re-import the same file under the same account name and confirm zero new rows,
+   then re-import under a different name and confirm a separate account appears.
 
-Phase 10B close is done and must not be reopened without a stated reason.
+Phase 11 operator items remain open and are independent: the webhook acceptance
+command in "Webhook acceptance — ONE operator command still required", and the
+native connect smoke test.
+
+Phase 10B and Phase 12 closes are done and must not be reopened without a stated
+reason.
 Before changing code in any phase:
 1. inspect repository state (`git fetch origin && git status`);
 2. read the source-of-truth docs listed in the index at the top of this file;
