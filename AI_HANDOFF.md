@@ -26,10 +26,10 @@ on live Mono data, which is deferred indefinitely and is not a blocker.
 
 **What the next session does.** Read this file top to bottom. Confirm state
 with `git fetch origin && git status`. Per `IMPLEMENTATION_PLAN.md` v4 the next
-phase is **Phase 13 — custom budgets**. Two Phase 12 items are **pending the
-operator**: the native smoke test of `expo-document-picker`, and the native file
-read over the content URI. The APK rebuild for Phase 12 is also outstanding.
-Both Mono feature flags remain **ON**
+phase is **Phase 13 — custom budgets**. The Phase 12 APK is built and available
+(see the Phase 12 checkpoint for the URL). Two items are **pending the operator**:
+the native smoke test of `expo-document-picker`, and the native file read over the
+content URI. Both Mono feature flags remain **ON**
 (`EXPO_PUBLIC_FEATURE_MONO=true` in `.env.production`, `FEATURE_MONO=true` as an
 Edge Function secret); `EXPO_PUBLIC_FEATURE_CSV_IMPORT` defaults true. Phase 11
 stays **open**: live data depends on Mono business KYB, which has not started, so
@@ -944,19 +944,22 @@ asserts coverage.**
 
 `tsconfig.json` enumerated individual `_shared` files by path, and none were in
 the new `csv/` directory, so a broken `../types.ts` import shipped while every local
-check was green and the deploy failed with `BOOT_ERROR`. `7fd138f` adds
-`tests/typecheck-coverage.test.ts`, which walks every `.ts`/`.tsx` under
+check was green and the deploy failed with `BOOT_ERROR`. The fix landed at
+`7fd138f`, and the `_shared` modules — including all eleven `csv/` files, which
+were previously not type-checked at all — are now covered:
+`tests/typecheck-coverage.test.ts` walks every `.ts`/`.tsx` under
 `supabase/functions/`, `src/` and `app/` and fails with the list of anything not
-covered, and widens `tsconfig` to include all of `_shared` via a narrow
-`deno.d.ts` ambient shim. Verified with a planted type error, which tsc now
-catches. No behaviour change.
+covered, and `tsconfig` now includes all of `_shared` via a narrow `deno.d.ts`
+ambient shim. The gate was proven rather than assumed: planting a deliberate type
+error into `csv/direction.ts` produced exit 2, where before the fix that file was
+never read at all. No behaviour change.
 
 ### Pending operator items
 
-- **APK rebuild pending.** The EAS Android build was still in flight when this
-  entry was written; Phase 12 has no operator-installed APK. `expo-document-picker`
-  is a new native dependency, so a rebuild is required rather than optional.
-- **Native smoke test of `expo-document-picker`: PENDING operator installation.**
+- **Phase 12 APK built and available:**
+  `https://expo.dev/artifacts/eas/4krTvmrg6zyZ1YDO2al-W3js1tmnqVe3h4P3VMmQx7o.apk`
+  (build `8695c254-0d5f-467f-8617-93639417903c`, commit `a6dde42`).
+  **Native smoke test of `expo-document-picker`: PENDING operator installation.**
   Picker → pick → preview → mapping → commit has only been exercised on web.
 - **Native file read over content URI: PENDING operator verification.** Web reads
   via the browser `File` API; native fetches `asset.uri`. The native path is
@@ -2246,9 +2249,9 @@ Use:
 
 ## Current phase
 **Phase 12 — CSV import — implemented and verified against the deployed Edge
-Function (22/22 live checks, 352 jest passing). Three items remain, all operator
-work: the APK rebuild, the native smoke test of `expo-document-picker`, and the
-native file read over the content URI. See the Phase 12 checkpoint above.
+Function (22/22 live checks, 352 jest passing). The APK is built; two items remain,
+both operator work: the native smoke test of `expo-document-picker`, and the native
+file read over the content URI. See the Phase 12 checkpoint above.
 Phase 13 (custom budgets) is next.**
 
 This section was previously "Phase 1", then "Phase 10B close", then "Phase 11".
@@ -2273,15 +2276,14 @@ have the connect screen load a real `link.mono.co` Connect Link.
 Do not start it until the Phase 12 native items below are closed out, or state a
 reason for proceeding without them.
 
-Phase 12 operator items, in order:
+Phase 12 operator items, in order. The APK is already built, so start at step 1
+with the artifact URL in the Phase 12 checkpoint:
 
-1. Build the preview APK (`npx eas-cli build --platform android --profile
-   preview`). Required, not optional: `expo-document-picker` is a new native
-   dependency.
-2. Install it and walk Settings → Import → choose a CSV → preview → commit. This
-   is the only check of the native picker and the native content-URI file read;
-   web exercises neither.
-3. Re-import the same file under the same account name and confirm zero new rows,
+1. Install the Phase 12 preview APK
+   (`4krTvmrg6zyZ1YDO2al-W3js1tmnqVe3h4P3VMmQx7o.apk`) and walk
+   Settings → Import → choose a CSV → preview → commit. This is the only check of
+   the native picker and the native content-URI file read; web exercises neither.
+2. Re-import the same file under the same account name and confirm zero new rows,
    then re-import under a different name and confirm a separate account appears.
 
 Phase 11 operator items remain open and are independent: the webhook acceptance
